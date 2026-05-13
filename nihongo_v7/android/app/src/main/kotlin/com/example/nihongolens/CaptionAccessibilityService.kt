@@ -2,6 +2,7 @@ package com.example.nihongolens
 
 import android.accessibilityservice.AccessibilityService
 import android.view.accessibility.AccessibilityEvent
+
 import com.google.mlkit.nl.languageid.LanguageIdentification
 import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.Translator
@@ -28,14 +29,21 @@ class CaptionAccessibilityService : AccessibilityService() {
 
         if (sourceLang == "auto") {
 
-            LanguageIdentification.getClient()
-                .identifyLanguage(text)
-                .addOnSuccessListener { lang ->
-                    createTranslator(lang)
+            val languageIdentifier = LanguageIdentification.getClient()
+
+            languageIdentifier.identifyLanguage(text)
+                .addOnSuccessListener { detectedLanguage ->
+
+                    if (detectedLanguage.isNullOrBlank() || detectedLanguage == "und") {
+                        return@addOnSuccessListener
+                    }
+
+                    createTranslator(detectedLanguage)
                     translateText(text)
                 }
 
         } else {
+
             createTranslator(sourceLang)
             translateText(text)
         }
@@ -45,7 +53,8 @@ class CaptionAccessibilityService : AccessibilityService() {
 
         try {
             translator?.close()
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
 
         val options = TranslatorOptions.Builder()
             .setSourceLanguage(source)
@@ -60,9 +69,12 @@ class CaptionAccessibilityService : AccessibilityService() {
     private fun translateText(text: String) {
 
         translator?.translate(text)
-            ?.addOnSuccessListener {
+            ?.addOnSuccessListener { translatedText ->
 
-                OverlayService.updateTexts(text, it)
+                OverlayService.updateTexts(
+                    text,
+                    translatedText
+                )
             }
     }
 
